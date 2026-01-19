@@ -1,0 +1,38 @@
+Python
+
+pycache/ *.py[cod] *$py.class *.so .Python venv/ env/ ENV/ *.egg-info/ .pytest_cache/
+Node
+
+node_modules/
+.next/
+out/
+build/
+dist/
+*.log
+Environment variables
+
+.env
+.env.local
+.env.*.local
+IDE
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+OS
+
+.DS_Store
+Thumbs.db
+Firebase
+
+.firebase/
+firebase-debug.log
+firestore-debug.log
+Data files (keep structure, ignore content)
+
+backend/data/.pdf backend/data/.txt !backend/data/.gitkeep
+Vector stores
+
+backend/data/chroma_db/
