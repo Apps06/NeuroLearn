@@ -27,11 +27,11 @@ class Settings(BaseSettings):
 
     # Gemini Model Configuration
     # Using Flash 1.5 for cost-efficiency and speed
-    GEMINI_MODEL: str = "gemini-1.0-pro"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     
     # Groq Configuration
-    GROQ_MODEL: str = "llama3-70b-8192"
-    AI_PROVIDER: str = "groq" # Options: "gemini", "groq"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    AI_PROVIDER: str = "gemini" # Options: "gemini", "groq"
 
     # Indian Context Settings
     DEFAULT_LANGUAGE: str = "hi"  # Hindi for AI4Bharat

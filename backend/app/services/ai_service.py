@@ -21,6 +21,7 @@ class AIService:
         Using Flash 1.5 model for optimal speed/cost balance.
         """
         genai.configure(api_key=settings.GEMINI_API_KEY)
+        print(f"[AI SERVICE] Initializing with model: {settings.GEMINI_MODEL}")
         self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
 
         # Safety settings for educational content
@@ -66,15 +67,20 @@ class AIService:
             Simplified text maintaining core meaning
         """
         level_prompts = {
-            "light": "slightly simpler vocabulary, keep sentence structure",
-            "moderate": "simpler words and shorter sentences",
-            "heavy": "very simple words, very short sentences, explain complex terms",
+            "light": "slightly simpler vocabulary, keep sentence structure, keep all information",
+            "moderate": "simpler words and shorter sentences, maintain main facts",
+            "heavy": "very simple words, very short sentences, explain complex terms, highlight key takeaways",
         }
 
         prompt = f"""Role: Education expert for learning disabilities (dyslexia).
-Task: Simplify text for Indian students (reading age -2 years).
+Task: Simplify the provided text for Indian students (reading age -2 years).
 Level: {level_prompts.get(level, level_prompts['moderate'])}
-Rules: Simple words, short sentences, explain technical terms in (), Indian context, active voice.
+Rules: 
+- Use simple words and short sentences.
+- Explain technical terms in parenthesis ().
+- Maintain an Indian educational context.
+- Use active voice.
+- IMPORTANT: Return the FULL simplified content. Do not summarize or skip sections.
 
 Text: {text}
 
@@ -84,7 +90,10 @@ Output: Simplified text only."""
             return await self._generate_content_with_retry(prompt)
         except Exception as e:
             # Fallback: return original if API fails
-            print(f"Gemini API error: {e}")
+            import traceback
+            with open("debug_ai.log", "a", encoding="utf-8") as f:
+                f.write(f"!!! AI SERVICE ERROR !!!: {str(e)}\n")
+                f.write(traceback.format_exc() + "\n")
             return text
 
     async def break_down_task(
@@ -314,7 +323,15 @@ Message:"""
                     safety_settings=self.safety_settings
                 )
             )
-            return response.text.strip()
+            
+            # Robust response handling - response.text can fail if blocked
+            try:
+                res = response.text.strip()
+                return res
+            except (AttributeError, ValueError) as e:
+                print(f"[AI] Gemini blocked/failed: {e}")
+                # Trigger fallback logic by raising exception
+                raise Exception("Gemini response blocked or empty")
             
         except exceptions.ResourceExhausted:
             print("[WARN] Gemini quota exhausted (429). Attempting fallback to Groq...")
