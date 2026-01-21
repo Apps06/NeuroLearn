@@ -48,18 +48,24 @@ export default function FlashcardsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const cards: Flashcard[] = data.flashcards.map(
-          (fc: { front: string; back: string }, idx: number) => ({
-            id: idx + 1,
-            front: fc.front,
-            back: fc.back,
-            difficulty: 2.5,
-            nextReview: new Date(),
-            repetitions: 0,
-          })
-        );
-        setFlashcards(cards);
-        setCurrentIndex(0);
+        
+        if (data.flashcards && data.flashcards.length > 0) {
+          const cards: Flashcard[] = data.flashcards.map(
+            (fc: { front: string; back: string }, idx: number) => ({
+              id: idx + 1,
+              front: fc.front,
+              back: fc.back,
+              difficulty: 2.5,
+              nextReview: new Date(),
+              repetitions: 0,
+            })
+          );
+          setFlashcards(cards);
+          setCurrentIndex(0);
+        } else {
+          console.warn("API returned empty flashcards, using local fallback");
+          generateLocalFlashcards();
+        }
       } else {
         // Fallback: Generate simple flashcards locally
         generateLocalFlashcards();

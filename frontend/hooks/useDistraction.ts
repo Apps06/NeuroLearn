@@ -26,28 +26,56 @@ export function useDistraction() {
     streakBroken: false,
   });
 
+  // Load from localStorage on mount (client-only) to avoid hydration mismatch
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("neurolearn_distraction_metrics");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setMetrics(prev => ({
+            ...prev,
+            ...parsed,
+            isDistracted: false, // Reset distraction state on reload
+            streakBroken: false,
+          }));
+        } catch (e) {
+          console.error("Failed to parse saved metrics", e);
+        }
+      }
+    }
+  }, []);
+
+  // Persist metrics to localStorage
+  useEffect(() => {
+    localStorage.setItem("neurolearn_distraction_metrics", JSON.stringify(metrics));
+  }, [metrics]);
+
   const sessionStartTime = useRef<number>(Date.now());
   const lastFocusTime = useRef<number>(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const pauseStartTime = useRef<number | null>(null);
+  const totalPausedTime = useRef<number>(0);
 
   useEffect(() => {
     /**
      * Visibility Change Listener
-     * Uses Page Visibility API to detect tab switches
      */
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // User switched away (distracted)
-        const focusDuration = Math.floor(
-          (Date.now() - lastFocusTime.current) / 1000
-        );
-
+        const now = Date.now();
+        lastFocusTime.current = now;
+        pauseStartTime.current = now;
+        
+        // Calculate focus duration before distraction
+        // (Not strictly needed for session timer but good for analytics)
+        
         setMetrics((prev) => ({
           ...prev,
           isDistracted: true,
           distractionCount: prev.distractionCount + 1,
-          totalFocusTime: prev.totalFocusTime + focusDuration,
-          streakBroken: true, // Trigger warning modal
+          streakBroken: true,
         }));
 
         // Stop the timer
@@ -56,8 +84,13 @@ export function useDistraction() {
           timerRef.current = null;
         }
       } else {
-        // User returned (refocused)
-        lastFocusTime.current = Date.now();
+        // User returned
+        const now = Date.now();
+        if (pauseStartTime.current) {
+          const pausedDuration = now - pauseStartTime.current;
+          totalPausedTime.current += pausedDuration;
+          pauseStartTime.current = null;
+        }
 
         setMetrics((prev) => ({
           ...prev,
@@ -71,29 +104,29 @@ export function useDistraction() {
 
     /**
      * Session Timer
-     * Tracks continuous focus time in current session
+     * Tracks continuous focus time (excluding paused/distracted time)
      */
     const startSessionTimer = () => {
-      if (timerRef.current) return; // Prevent duplicate timers
+      if (timerRef.current) return;
 
       timerRef.current = setInterval(() => {
+        const now = Date.now();
+        // Elapsed = (Now - Start) - Paused
         const elapsed = Math.floor(
-          (Date.now() - sessionStartTime.current) / 1000
+          (now - sessionStartTime.current - totalPausedTime.current) / 1000
         );
+        
         setMetrics((prev) => ({
           ...prev,
           currentSessionTime: elapsed,
+          totalFocusTime: prev.totalFocusTime + 1, // Add 1s to total accumulator
         }));
       }, 1000);
     };
 
-    // Attach visibility listener
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    // Start initial timer
     startSessionTimer();
 
-    // Cleanup on unmount
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (timerRef.current) {

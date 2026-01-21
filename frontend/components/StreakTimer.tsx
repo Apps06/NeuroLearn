@@ -19,7 +19,7 @@ export default function StreakTimer() {
   } = useDistraction();
 
   return (
-    <div className="fixed top-4 right-4 z-50">
+    <div className="">
       {/* Focus Timer Display */}
       <div
         className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg transition-colors ${

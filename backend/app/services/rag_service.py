@@ -106,13 +106,30 @@ class RAGService:
         except Exception as e:
             print(f"Failed to initialize RAG: {e}")
 
-    def query(self, question: str, grade_context: int = None) -> dict:
+    async def query(self, question: str, grade_context: int = None) -> dict:
         """Query using the new invoke syntax."""
         if not RAG_AVAILABLE or not self.rag_chain:
+            # Fallback for when PDF is missing (Mocking NIMHANS knowledge)
+            logging.warning("RAG chain not initialized. Using fallback response.")
+            
+            fallback_knowledge = {
+                "reading": "For reading difficulties (Dyslexia), NIMHANS guidelines recommend: 1) Phonics-based instruction, 2) Multisensory techniques, 3) Large font and spacing (which this app provides).",
+                "writing": "For writing difficulties (Dysgraphia), guidelines suggest: 1) Oral testing, 2) Allowing extra time, 3) Using speech-to-text software.",
+                "attention": "For attention issues (ADHD), guidelines suggest: 1) Breaking tasks into small steps, 2) Frequent breaks (Pomodoro), 3) Minimal distractions in the environment.",
+                "assessment": "Standard assessment involves: 1) IQ test (WISC), 2) Educational assessment (NIMHANS battery), 3) Exclusion of sensory deficits."
+            }
+            
+            # Simple keyword matching for fallback
+            answer = "I couldn't verify this in the specific PDF document (file missing). However, general NIMHANS guidelines for SLD suggest ensuring early identification and providing remedial education."
+            for key, val in fallback_knowledge.items():
+                if key in question.lower():
+                    answer = f"[FALLBACK KNOWLEDGE] {val}"
+                    break
+            
             return {
-                "answer": "RAG system not initialized (dependencies missing or PDF load failed).",
-                "sources": [],
-                "confidence_score": 0.0,
+                "answer": answer,
+                "sources": ["System Knowledge (PDF Missing)"],
+                "confidence_score": 0.5,
             }
 
         if grade_context:
@@ -121,10 +138,10 @@ class RAGService:
             augmented_input = question
 
         try:
-            # NEW: Invoke expects "input", not "query"
-            result = self.rag_chain.invoke({"input": augmented_input})
+            # Async invoke
+            result = await self.rag_chain.ainvoke({"input": augmented_input})
 
-            # Extract sources (Key is now "context", not "source_documents")
+            # Extract sources
             sources = []
             if "context" in result:
                 for doc in result["context"]:

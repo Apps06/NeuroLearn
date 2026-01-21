@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # API Keys
     GEMINI_API_KEY: str
+    GROQ_API_KEY: str = "" # Optional, strictly for Groq usage
     AI4BHARAT_API_KEY: str = ""  # Optional, fallback to Web Speech API
 
     # Application Settings
@@ -26,7 +27,11 @@ class Settings(BaseSettings):
 
     # Gemini Model Configuration
     # Using Flash 1.5 for cost-efficiency and speed
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-1.0-pro"
+    
+    # Groq Configuration
+    GROQ_MODEL: str = "llama3-70b-8192"
+    AI_PROVIDER: str = "groq" # Options: "gemini", "groq"
 
     # Indian Context Settings
     DEFAULT_LANGUAGE: str = "hi"  # Hindi for AI4Bharat

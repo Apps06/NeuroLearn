@@ -32,12 +32,22 @@ body {
 }
 
 /* Focus indicators for accessibility */
-button:focus,
-input:focus,
-textarea:focus,
-select:focus {
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+
+/* Global Button Interactions for sleek feel */
+button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active {
+  transform: scale(0.96);
+  filter: brightness(0.95);
 }
 
 /* Custom scrollbar for better UX */

@@ -21,6 +21,8 @@ export default function ReadingRuler({
   const [mouseY, setMouseY] = useState<number | null>(null);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
+    // Use pageY if the ruler should stay relative to document, 
+    // but here we want it relative to viewport for the overlay effect
     setMouseY(e.clientY);
   }, []);
 
@@ -42,7 +44,7 @@ export default function ReadingRuler({
     <>
       {/* Top overlay - dims content above cursor */}
       <div
-        className="fixed left-0 right-0 pointer-events-none z-40 transition-all duration-75"
+        className="fixed left-0 right-0 pointer-events-none z-[100] transition-all duration-75"
         style={{
           top: 0,
           height: Math.max(0, mouseY - height / 2),
