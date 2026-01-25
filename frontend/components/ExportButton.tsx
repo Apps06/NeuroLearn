@@ -57,6 +57,7 @@ export default function ExportButton({ content, title = "NeuroLearn Notes" }: Ex
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
       };
       
+      // @ts-ignore - html2pdf.js types are incomplete
       await html2pdf().from(container).set(options).save();
     } catch (error) {
       console.error("PDF export failed:", error);

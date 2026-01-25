@@ -6,7 +6,7 @@
 
 import React, { useState, useCallback } from "react";
 import { Volume2, Loader2, BookOpen, Palette, Eye, Settings2 } from "lucide-react";
-import BionicText from "@/components/BionicText";
+import BionicKaraokeText from "@/components/BionicKaraokeText";
 import ReadingRuler from "@/components/ReadingRuler";
 import FontSizeControl from "@/components/FontSizeControl";
 import ExportButton from "@/components/ExportButton";
@@ -31,6 +31,8 @@ export default function ReaderPage() {
     "light" | "moderate" | "heavy"
   >("moderate");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState<number | null>(null);
+  const [currentCharIndex, setCurrentCharIndex] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const { settings, updateSettings } = useSettings();
@@ -107,61 +109,94 @@ export default function ReaderPage() {
    * Play audio using TTS
    */
   /**
-   * Play audio using TTS
+  /**
+   * Play audio using TTS with robust fallback logic
    */
   const handlePlayAudio = async (dataToPlay?: any) => {
-    // If called from onClick, dataToPlay will be the event object
-    // If called directly, it will be the data object
     const actualData = (dataToPlay && dataToPlay.chunks) ? dataToPlay : simplifiedData;
     
     if (!actualData) return;
 
+    if (isPlaying) {
+      console.log("Stopping audio playback");
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setCurrentChunkIndex(null);
+      setCurrentCharIndex(null);
+      return;
+    }
+
+    console.log("Starting audio playback for", actualData.chunks.length, "chunks");
     setIsPlaying(true);
-    const fullText = actualData.chunks.map((c: any) => c.simplified).join(" ");
+    setCurrentChunkIndex(0);
 
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/reader/tts`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: fullText, language: "en" }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.use_client_tts) {
-        console.log("Using client TTS fallback", data.voice_params);
-        const utterance = new SpeechSynthesisUtterance(fullText);
-        utterance.lang = data.voice_params.lang;
-        utterance.rate = data.voice_params.rate;
-        utterance.pitch = data.voice_params.pitch;
-        
-        // Explicitly try to find an Indian voice
-        const voices = window.speechSynthesis.getVoices();
-        const indianVoice = voices.find(v => v.lang.includes('IN')) || voices.find(v => v.lang.startsWith('en'));
-        if (indianVoice) utterance.voice = indianVoice;
-
-        utterance.onend = () => setIsPlaying(false);
-        utterance.onerror = (e) => {
-             console.error("TTS Playback Error", e);
-             setIsPlaying(false);
-        };
-        window.speechSynthesis.speak(utterance);
-      } else if (data.audio_base64) {
-        const audio = new Audio(`data:audio/wav;base64,${data.audio_base64}`);
-        audio.onended = () => setIsPlaying(false);
-        audio.play();
+    // Strategy: Speak chunk by chunk to enable highlighting
+    const speakChunk = (index: number) => {
+      if (index >= actualData.chunks.length) {
+        setIsPlaying(false);
+        setCurrentChunkIndex(null);
+        return;
       }
-    } catch (error) {
-      console.error("TTS error:", error);
-      // Fallback to Web Speech API
-      const utterance = new SpeechSynthesisUtterance(fullText);
-      utterance.lang = "en-IN";
-      utterance.rate = 0.9;
-      utterance.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(utterance);
+
+      setCurrentChunkIndex(index);
+      setCurrentCharIndex(0);
+      const text = actualData.chunks[index].simplified;
+      
+      console.log(`Speaking chunk ${index}: "${text.substring(0, 20)}..."`);
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          // console.log(`Boundary at ${event.charIndex}`);
+          setCurrentCharIndex(event.charIndex);
+        }
+      };
+      
+      // Voice selection (Indian preference)
+      const voices = window.speechSynthesis.getVoices();
+      const indianVoice = voices.find(v => v.lang.includes('IN') || v.name.includes('India'));
+      const englishVoice = voices.find(v => v.lang.startsWith('en'));
+      
+      if (indianVoice) {
+        utterance.voice = indianVoice;
+        utterance.lang = "en-IN";
+      } else if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+
+      utterance.rate = settings.ttsSpeed || 0.9;
+      
+      utterance.onend = () => {
+        speakChunk(index + 1);
+      };
+
+      utterance.onerror = (e) => {
+        console.error("TTS Error", e);
+        setIsPlaying(false);
+        setCurrentChunkIndex(null);
+        setCurrentCharIndex(null);
+      };
+
+      // Force cancel any pending speech to ensure this one starts
+      window.speechSynthesis.cancel();
+      
+      // Delay to allow browser to reset its speech engine
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+        
+        // Fallback: If onboundary never fires, at least the block is highlighted
+        // We can also simulate word progress if needed, but usually onboundary works on modern browsers
+      }, 100);
+    };
+
+    // Start speaking the first chunk
+    if (window.speechSynthesis.getVoices().length > 0) {
+      speakChunk(0);
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        speakChunk(0);
+        window.speechSynthesis.onvoiceschanged = null;
+      };
     }
   };
 
@@ -254,6 +289,35 @@ export default function ReaderPage() {
                   </div>
                 )}
               </div>
+
+              {/* TTS Speed Control */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                 <div className="flex items-center gap-2 mb-3">
+                  <Volume2 className="text-green-500" size={20} />
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    Reader Speed
+                  </h3>
+                </div>
+                <p className="text-sm text-gray-500 mb-3">
+                  Adjust how fast the text is read aloud
+                </p>
+                <div className="flex items-center gap-4">
+                  <label className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
+                    {settings.ttsSpeed.toFixed(1)}x
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={settings.ttsSpeed}
+                    onChange={(e) =>
+                      updateSettings({ ttsSpeed: parseFloat(e.target.value) })
+                    }
+                    className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Reading Ruler Toggle */}
@@ -271,13 +335,13 @@ export default function ReaderPage() {
               </div>
               <button
                 onClick={toggleRuler}
-                className={`relative w-14 h-8 rounded-full transition ${
-                  settings.readingRulerEnabled ? "bg-yellow-500" : "bg-gray-300"
+                className={`relative w-12 h-6 rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 ${
+                  settings.readingRulerEnabled ? "bg-yellow-500" : "bg-gray-300 dark:bg-gray-600"
                 }`}
               >
                 <span
-                  className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow transition-transform ${
-                    settings.readingRulerEnabled ? "translate-x-7" : "translate-x-1"
+                  className={`absolute top-1 left-1 bg-white rounded-full shadow transition-transform duration-200 ease-in-out w-4 h-4 ${
+                    settings.readingRulerEnabled ? "translate-x-6" : "translate-x-0"
                   }`}
                 />
               </button>
@@ -345,11 +409,14 @@ export default function ReaderPage() {
               <div className="flex gap-2">
                 <button
                   onClick={handlePlayAudio}
-                  disabled={isPlaying}
-                  className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition"
+                  className={`flex items-center gap-2 font-medium py-2 px-4 rounded-lg transition ${
+                    isPlaying 
+                      ? "bg-red-500 hover:bg-red-600 text-white" 
+                      : "bg-green-500 hover:bg-green-600 text-white"
+                  }`}
                 >
                   <Volume2 size={20} />
-                  {isPlaying ? "Playing..." : "Listen"}
+                  {isPlaying ? "Stop Reading" : "Listen"}
                 </button>
                 <ExportButton
                   content={getExportContent()}
@@ -361,9 +428,17 @@ export default function ReaderPage() {
             {simplifiedData.chunks.map((chunk, idx) => (
               <div
                 key={idx}
-                className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-gray-100"
+                className={`mb-6 p-4 rounded-lg transition-all duration-300 ${
+                  currentChunkIndex === idx
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 shadow-md ring-1 ring-blue-100 dark:ring-blue-800"
+                    : "bg-gray-50 dark:bg-gray-700 opacity-60 grayscale-[0.5]"
+                } ${isPlaying && currentChunkIndex !== idx ? "scale-[0.98]" : "scale-100"} text-gray-900 dark:text-gray-100`}
               >
-                <BionicText html={chunk.bionic_html} />
+                 <BionicKaraokeText 
+                  text={chunk.simplified} 
+                  charIndex={currentCharIndex}
+                  isActive={currentChunkIndex === idx}
+                />
               </div>
             ))}
 

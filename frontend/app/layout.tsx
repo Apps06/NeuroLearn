@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css"; // ← THIS IS CRITICAL - DO NOT REMOVE
 import Link from "next/link";
-import { BookOpen, Target, FileQuestion, LayoutDashboard, BookMarked } from "lucide-react";
+import { BookOpen, Target, FileQuestion, LayoutDashboard, BookMarked, Users } from "lucide-react";
 import Providers from "./Providers";
 import ClientLayout from "./AppClientLayout";
 
@@ -76,6 +76,13 @@ export default function RootLayout({
                   >
                     <FileQuestion size={20} />
                     <span className="hidden sm:inline">Assessment</span>
+                  </Link>
+                  <Link
+                    href="/students"
+                    className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-pink-600 transition"
+                  >
+                    <Users size={20} />
+                    <span className="hidden sm:inline">Portal</span>
                   </Link>
                 </div>
               </div>

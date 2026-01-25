@@ -79,29 +79,40 @@ async def simplify_text(request: TextSimplificationRequest):
     4. Return structured chunks for frontend rendering
     """
     try:
-        # Step 1: Semantic chunking
-        chunks = nlp_service.chunk_text_semantically(request.text)
+        # Step 1: Simplify the entire text at once
+        # This saves multiple API calls (avoids 429 errors) and provides better context
+        print(f"[READER] Simplifying full text ({len(request.text)} chars) at level: {request.simplification_level}")
+        simplified_full = await ai_service.simplify_text(
+            request.text, request.simplification_level
+        )
 
-        # Step 2 & 3: Simplify and format each chunk
+        # Step 2: Semantic chunking on the simplified text
+        # We chunk the simplified text so the user can still read in meaningful units
+        chunks = nlp_service.chunk_text_semantically(simplified_full)
+
+        # Step 3: Format each chunk (Bionic Reading)
         simplified_chunks = []
         for chunk in chunks:
-            # Simplify with Gemini
-            simplified = await ai_service.simplify_text(
-                chunk, request.simplification_level
-            )
-
             # Apply Bionic Reading
-            bionic_html = nlp_service.apply_bionic_reading(simplified)
+            bionic_html = nlp_service.apply_bionic_reading(chunk)
 
             simplified_chunks.append(
                 SimplifiedChunk(
-                    original=chunk, simplified=simplified, bionic_html=bionic_html
+                    original=chunk,  # In this flow, we don't have 1:1 original chunks, so simplified is the "new" original
+                    simplified=chunk,
+                    bionic_html=bionic_html
                 )
             )
 
+        print(f"[READER] Successfully simplified into {len(simplified_chunks)} chunks")
         return TextSimplificationResponse(
-            chunks=simplified_chunks, audio_available=True  # TTS handled separately
+            chunks=simplified_chunks, audio_available=True
         )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -172,6 +183,7 @@ async def query_nimhans(request: RAGQueryRequest):
             answer=result["answer"],
             sources=result["sources"],
             confidence_score=result["confidence_score"],
+            source_doc=result.get("source_doc")
         )
 
     except Exception as e:
@@ -220,5 +232,5 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG)
 

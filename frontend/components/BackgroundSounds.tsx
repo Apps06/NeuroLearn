@@ -206,10 +206,17 @@ export default function BackgroundSounds() {
 
       {/* Expanded Panel */}
       {isExpanded && (
-        <div className="absolute bottom-16 right-0 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 z-50">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">
-            Background Sounds
-          </h3>
+        <div className="absolute top-14 right-0 w-72 bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 z-50 border border-gray-100 dark:border-gray-700 animate-in fade-in slide-in-from-right-2 duration-200">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              Ambiance Sounds
+            </h3>
+            {currentSound !== "none" && (
+              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
+                Playing: {soundOptions.find(o => o.id === currentSound)?.label}
+              </span>
+            )}
+          </div>
           
           {/* Sound Options */}
           <div className="space-y-2 mb-4">

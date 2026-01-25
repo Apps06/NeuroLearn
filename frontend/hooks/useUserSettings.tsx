@@ -19,6 +19,7 @@ export interface UserSettings {
   pomodoroBreakDuration: number; // minutes
   dailyStudyGoal: number; // minutes
   dailyTaskGoal: number; // number of tasks
+  ttsSpeed: number; // 0.5 to 2.0
 }
 
 const defaultSettings: UserSettings = {
@@ -31,6 +32,7 @@ const defaultSettings: UserSettings = {
   pomodoroBreakDuration: 5,
   dailyStudyGoal: 60,
   dailyTaskGoal: 5,
+  ttsSpeed: 0.9,
 };
 
 interface SettingsContextType {

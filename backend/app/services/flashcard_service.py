@@ -21,21 +21,32 @@ async def generate_flashcards(text: str, max_cards: int = 10) -> List[Dict[str, 
         List of flashcard dicts with 'front' and 'back' keys
     """
     prompt = f"""
-    You are an educational content creator. Generate {max_cards} flashcards from the following text.
-    Each flashcard should have a clear question on the front and a concise answer on the back.
-    Focus on key concepts, definitions, and important facts.
+    Role: Expert Academic Tutor.
+    Task: Generate {max_cards} high-quality study flashcards from the provided text.
+    Target Audience: Student revising for an exam.
     
-    TEXT:
+    Guidelines:
+    1. **Front (Question)**: Create varied question types:
+       - Conceptual: "Explain the concept of..."
+       - Relational: "What is the relationship between X and Y?"
+       - Definitional: "Define [Term]."
+       - Cause/Effect: "What happens when...?"
+    
+    2. **Back (Answer)**: Provide clear, accurate, and comprehensive answers.
+       - Avoid one-word answers unless it's a strict factual recall.
+       - If the answer is complex, break it down briefly.
+    
+    3. **Content**: extracting only the most important information. discard fluff.
+    
+    SOURCE TEXT:
     {text}
     
-    Respond ONLY with a JSON array of objects, each with 'front' and 'back' keys.
-    Example format:
+    OUTPUT FORMAT:
+    Respond ONLY with a valid JSON array of objects. No markdown, no explanations outside JSON.
     [
-        {{"front": "What is photosynthesis?", "back": "The process by which plants convert sunlight into energy"}},
-        {{"front": "Define democracy", "back": "A system of government where citizens participate in decision-making"}}
+        {{"front": "Question here?", "back": "Detailed answer here."}},
+        {{"front": "Another question?", "back": "Another answer."}}
     ]
-    
-    Generate exactly {max_cards} flashcards. Return ONLY the JSON array, no other text.
     """
     
     try:
@@ -45,20 +56,30 @@ async def generate_flashcards(text: str, max_cards: int = 10) -> List[Dict[str, 
             print("[ERROR Flashcard] Empty response from AI")
             return []
         
+        # Robust JSON extraction
+        json_str = response.strip()
+        if "```" in json_str:
+            # Remove markdown code blocks
+            if "```json" in json_str:
+                json_str = json_str.split("```json")[1].split("```")[0].strip()
+            else:
+                json_str = json_str.split("```")[1].split("```")[0].strip()
+        
         # Extract JSON from response - find first [ and last ]
-        start_idx = response.find("[")
-        end_idx = response.rfind("]")
+        start_idx = json_str.find("[")
+        end_idx = json_str.rfind("]")
         
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = response[start_idx:end_idx + 1]
+            json_str = json_str[start_idx:end_idx + 1]
             try:
                 flashcards = json.loads(json_str)
                 return flashcards[:max_cards]
             except json.JSONDecodeError as je:
                 print(f"[FLASHCARD FILTER] JSON Decode Error: {je}")
+                # Try to blindly fix common JSON errors if needed, or just return empty
                 return []
         else:
-            print("[FLASHCARD ERROR] No JSON array found")
+            print(f"[FLASHCARD ERROR] No JSON array found in response: {response[:100]}...")
             return []
             
     except Exception as e:

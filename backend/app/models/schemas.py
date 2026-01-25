@@ -89,10 +89,11 @@ class RAGQueryResponse(BaseModel):
     """Response from RAG system with source attribution"""
 
     answer: str
-    sources: List[str] = Field(description="Page numbers or sections from NIMHANS PDF")
+    sources: List[str] = Field(description="Page numbers or sections from the source PDF")
     confidence_score: float = Field(
         ge=0.0, le=1.0, description="Confidence in answer accuracy (0-1)"
     )
+    source_doc: Optional[str] = Field(None, description="The document name used for retrieval")
 
 
 class FlashcardItem(BaseModel):

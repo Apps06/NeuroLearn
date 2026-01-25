@@ -6,7 +6,12 @@
 
 import { ReactNode } from "react";
 import { SettingsProvider } from "@/hooks/useUserSettings";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 export default function Providers({ children }: { children: ReactNode }) {
-  return <SettingsProvider>{children}</SettingsProvider>;
+  return (
+    <AuthProvider>
+      <SettingsProvider>{children}</SettingsProvider>
+    </AuthProvider>
+  );
 }
